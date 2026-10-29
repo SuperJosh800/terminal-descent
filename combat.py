@@ -423,22 +423,161 @@ def combat_final_boss(player, enemy):
 
     return "dead"
 
-def combat(player, enemy):
-    if hasattr(enemy, 'is_boss') and enemy.name == "???":
-        return combat_final_boss(player, enemy)
-
+def announce_enemy(enemy):
     print()
     show_enemy_art(enemy)
     print(f"\n  {Fore.RED}A {enemy.name} appears!{Style.RESET_ALL}")
     print(f"  HP: {Fore.RED}{enemy.hp}{Style.RESET_ALL} | ATK: {Fore.RED}{enemy.atk}{Style.RESET_ALL} | DEF: {enemy.defense}\n")
 
-    set_bonus = get_active_set_bonus(player)
-    eternal_inferno = set_bonus == "eternal_inferno"
-    first_hit_blocked = False
+def has_first_hit_block(player):
+    accessory = player.equipped.get("accessory")
+    return bool(accessory and accessory.get("special") == "block_first_hit")
+
+def update_enemy_defense(enemy):
+    if 'def_down' in enemy.status_effects:
+        reduction = enemy.status_effects['def_down']['value'] * enemy.status_effects['def_down']['stacks']
+        enemy.defense = max(0, int(enemy.base_defense - reduction))
+    else:
+        enemy.defense = enemy.base_defense
+
+def player_turn(player, enemy, set_bonus):
+    bonus_atk = 0
+    bonus_def = 0
+    bonus_spd = 0
+    if player.status_effects:
+        if 'atk_up' in player.status_effects:
+            bonus_atk = player.status_effects['atk_up']['value'] * player.status_effects['atk_up']['stacks']
+        if 'def_up' in player.status_effects:
+            bonus_def = player.status_effects['def_up']['value'] * player.status_effects['def_up']['stacks']
+        if 'spd_up' in player.status_effects:
+            bonus_spd = player.status_effects['spd_up']['value'] * player.status_effects['spd_up']['stacks']
+
+    player.atk = int(player.base_atk + bonus_atk)
+    player.defense = int(player.base_defense + bonus_def)
+    player.spd = int(player.base_spd + bonus_spd)
+
+    if set_bonus == "last_stand" and player.hp <= int(player.max_hp * 0.20):
+        player.atk *= 2
+        player.defense *= 2
+        print(f"  {Fore.YELLOW}Last Stand! ATK and DEF doubled!{Style.RESET_ALL}")
+
+    show_turn_header(player, enemy, set_bonus)
+    action = input("\n  > ").strip()
+
+    if action == "1":
+        dmg = enemy.take_damage(player.atk)
+        print(f"  {Fore.GREEN}You attack for {dmg} damage! ({enemy.hp}/{enemy.max_hp} HP remaining){Style.RESET_ALL}")
+        handle_on_hit(player, enemy, player.equipped.get("weapon"), set_bonus)
+
+    elif action == "2":
+        choose_ability(player, enemy, set_bonus)
+
+    elif action == "3":
+        use_item(player, enemy)
+
+    elif action == "4":
+        dmg = enemy.take_damage(player.atk)
+        print(f"  {Fore.GREEN}You attack for {dmg} damage! ({enemy.hp}/{enemy.max_hp} HP remaining){Style.RESET_ALL}")
+        handle_on_hit(player, enemy, player.equipped.get("weapon"), set_bonus)
+        if not enemy.is_alive():
+            return  # on-kill effects are skipped here, as before the refactor
+        use_item(player, enemy)
+
+    elif action == "5":
+        choose_ability(player, enemy, set_bonus)
+        if not enemy.is_alive():
+            return  # on-kill effects are skipped here, as before the refactor
+        use_item(player, enemy)
+
+    else:
+        print("  Invalid choice, you hesitate!")
+
+    if not enemy.is_alive():
+        handle_on_kill(player, enemy, set_bonus)
+        handle_accessory_on_kill(player)
+
+def enemy_attack(player, enemy, set_bonus, first_hit_blocked):
+    """Resolves one enemy attack on player. Returns whether the first-hit block is still unused."""
+    enemy_atk = enemy.atk
+    if 'atk_down' in enemy.status_effects:
+        reduction = enemy.status_effects['atk_down']['value'] * enemy.status_effects['atk_down']['stacks']
+        enemy_atk = max(1, int(enemy.atk - reduction))
+
+    ring = player.equipped.get("ring")
+    if ring and ring.get("special") == "fire_resist_10" and enemy.name in BURN_IMMUNE:
+        enemy_atk = int(enemy_atk * 0.9)
+
+    handle_sael(player, enemy)
+
+    if set_bonus == "unyielding_stone" and random.randint(1, 100) <= 20:
+        print(f"  {Fore.CYAN}Unyielding Stone! You absorb the hit!{Style.RESET_ALL}")
+        return first_hit_blocked
+    if first_hit_blocked:
+        print(f"  {Fore.CYAN}Igris's Oathbound Shield blocks the attack!{Style.RESET_ALL}")
+        return False
+
+    evade_chance = max(0, (player.spd / (player.spd + enemy.atk)) * 100 - 20)
+
+    armor = player.equipped.get("armor")
+    boots = player.equipped.get("boots")
+    if armor and armor.get("special") == "evasion_10":
+        evade_chance += 10
+    if boots and boots.get("special") == "evasion_5":
+        evade_chance += 5
+
+    if random.randint(1, 100) <= evade_chance:
+        print(f"  {Fore.CYAN}You dodge the {enemy.name}'s attack!{Style.RESET_ALL}")
+        return first_hit_blocked
+
+    dmg = player.take_damage(enemy_atk)
+    accessory = player.equipped.get("accessory")
+    if accessory and accessory.get("special") == "burn_resist_50":
+        dmg = int(dmg * 0.5)
+        player.hp += int(dmg * 0.5)
+    if player.hp <= 0:
+        armor = player.equipped.get("armor")
+        if armor and armor.get("special") == "death_save" and not armor.get("used"):
+            player.hp = 1
+            armor["used"] = True
+            print(f"  {Fore.YELLOW}The Deathless Shroud saves you! It crumbles to dust.{Style.RESET_ALL}")
+            player.equipped["armor"] = None
+        else:
+            print(f"  {Fore.RED}{enemy.name} strikes you for {dmg} damage! You have been slain.{Style.RESET_ALL}")
+            return first_hit_blocked
+    else:
+        print(f"  {Fore.RED}{enemy.name} strikes you for {dmg} damage! ({player.hp}/{player.max_hp} HP remaining){Style.RESET_ALL}")
 
     accessory = player.equipped.get("accessory")
-    if accessory and accessory.get("special") == "block_first_hit":
-        first_hit_blocked = True
+    if accessory and accessory.get("special") == "reflect_10":
+        reflect = max(1, int(dmg * 0.1))
+        enemy.hp -= reflect
+        print(f"  {Fore.GREEN}Reflected {reflect} damage!{Style.RESET_ALL}")
+    return first_hit_blocked
+
+def award_victory(player, enemy, set_bonus):
+    player.gain_xp(enemy.xp)
+
+    if enemy.name == "Sael, the Debt Collector":
+        print(f"  {Fore.RED}Sael: \"The debt... is cleared.\"{Style.RESET_ALL}")
+        player.gold += enemy.gold * 2
+        print(f"  {Fore.YELLOW}Sael releases his collection. +{enemy.gold * 2}g{Style.RESET_ALL}")
+    else:
+        player.gold += enemy.gold
+        print(f"  {Fore.YELLOW}+{enemy.xp} XP | +{enemy.gold} gold{Style.RESET_ALL}")
+
+    if set_bonus == "void_incarnate" and random.randint(1, 100) <= 15:
+        print(f"  {Fore.YELLOW}Void Incarnate! The next combat will be skipped.{Style.RESET_ALL}")
+        player.skip_next_combat = True
+
+def combat(player, enemy):
+    if hasattr(enemy, 'is_boss') and enemy.name == "???":
+        return combat_final_boss(player, enemy)
+
+    announce_enemy(enemy)
+
+    set_bonus = get_active_set_bonus(player)
+    eternal_inferno = set_bonus == "eternal_inferno"
+    first_hit_blocked = has_first_hit_block(player)
 
     while player.hp > 0 and enemy.is_alive():
 
@@ -446,141 +585,20 @@ def combat(player, enemy):
         if not enemy.is_alive():
             break
 
-        if 'def_down' in enemy.status_effects:
-            reduction = enemy.status_effects['def_down']['value'] * enemy.status_effects['def_down']['stacks']
-            enemy.defense = max(0, int(enemy.base_defense - reduction))
-        else:
-            enemy.defense = enemy.base_defense
+        update_enemy_defense(enemy)
 
-        bonus_atk = 0
-        bonus_def = 0
-        bonus_spd = 0
-        if player.status_effects:
-            if 'atk_up' in player.status_effects:
-                bonus_atk = player.status_effects['atk_up']['value'] * player.status_effects['atk_up']['stacks']
-            if 'def_up' in player.status_effects:
-                bonus_def = player.status_effects['def_up']['value'] * player.status_effects['def_up']['stacks']
-            if 'spd_up' in player.status_effects:
-                bonus_spd = player.status_effects['spd_up']['value'] * player.status_effects['spd_up']['stacks']
-
-        player.atk = int(player.base_atk + bonus_atk)
-        player.defense = int(player.base_defense + bonus_def)
-        player.spd = int(player.base_spd + bonus_spd)
-
-        if set_bonus == "last_stand" and player.hp <= int(player.max_hp * 0.20):
-            player.atk *= 2
-            player.defense *= 2
-            print(f"  {Fore.YELLOW}Last Stand! ATK and DEF doubled!{Style.RESET_ALL}")
-
-        show_turn_header(player, enemy, set_bonus)
-        action = input("\n  > ").strip()
-
-        if action == "1":
-            dmg = enemy.take_damage(player.atk)
-            print(f"  {Fore.GREEN}You attack for {dmg} damage! ({enemy.hp}/{enemy.max_hp} HP remaining){Style.RESET_ALL}")
-            handle_on_hit(player, enemy, player.equipped.get("weapon"), set_bonus)
-
-        elif action == "2":
-            choose_ability(player, enemy, set_bonus)
-
-        elif action == "3":
-            use_item(player, enemy)
-
-        elif action == "4":
-            dmg = enemy.take_damage(player.atk)
-            print(f"  {Fore.GREEN}You attack for {dmg} damage! ({enemy.hp}/{enemy.max_hp} HP remaining){Style.RESET_ALL}")
-            handle_on_hit(player, enemy, player.equipped.get("weapon"), set_bonus)
-            if not enemy.is_alive():
-                break
-            use_item(player, enemy)
-
-        elif action == "5":
-            choose_ability(player, enemy, set_bonus)
-            if not enemy.is_alive():
-                break
-            use_item(player, enemy)
-
-        else:
-            print("  Invalid choice, you hesitate!")
-
+        player_turn(player, enemy, set_bonus)
         if not enemy.is_alive():
-            handle_on_kill(player, enemy, set_bonus)
-            handle_accessory_on_kill(player)
             break
 
         tick_statuses(player)
         print(f"\n  --- {Fore.RED}{enemy.name}'s turn{Style.RESET_ALL} ---")
-
-        enemy_atk = enemy.atk
-        if 'atk_down' in enemy.status_effects:
-            reduction = enemy.status_effects['atk_down']['value'] * enemy.status_effects['atk_down']['stacks']
-            enemy_atk = max(1, int(enemy.atk - reduction))
-
-        ring = player.equipped.get("ring")
-        if ring and ring.get("special") == "fire_resist_10" and enemy.name in BURN_IMMUNE:
-            enemy_atk = int(enemy_atk * 0.9)
-
-        handle_sael(player, enemy)
-
-        if set_bonus == "unyielding_stone" and random.randint(1, 100) <= 20:
-            print(f"  {Fore.CYAN}Unyielding Stone! You absorb the hit!{Style.RESET_ALL}")
-        elif first_hit_blocked:
-            print(f"  {Fore.CYAN}Igris's Oathbound Shield blocks the attack!{Style.RESET_ALL}")
-            first_hit_blocked = False
-        else:
-            evade_chance = max(0, (player.spd / (player.spd + enemy.atk)) * 100 - 20)
-
-            armor = player.equipped.get("armor")
-            boots = player.equipped.get("boots")
-            if armor and armor.get("special") == "evasion_10":
-                evade_chance += 10
-            if boots and boots.get("special") == "evasion_5":
-                evade_chance += 5
-
-            if random.randint(1, 100) <= evade_chance:
-                print(f"  {Fore.CYAN}You dodge the {enemy.name}'s attack!{Style.RESET_ALL}")
-            else:
-                dmg = player.take_damage(enemy_atk)
-                accessory = player.equipped.get("accessory")
-                if accessory and accessory.get("special") == "burn_resist_50":
-                    dmg = int(dmg * 0.5)
-                    player.hp += int(dmg * 0.5)
-                if player.hp <= 0:
-                    armor = player.equipped.get("armor")
-                    if armor and armor.get("special") == "death_save" and not armor.get("used"):
-                        player.hp = 1
-                        armor["used"] = True
-                        print(f"  {Fore.YELLOW}The Deathless Shroud saves you! It crumbles to dust.{Style.RESET_ALL}")
-                        player.equipped["armor"] = None
-                    else:
-                        print(f"  {Fore.RED}{enemy.name} strikes you for {dmg} damage! You have been slain.{Style.RESET_ALL}")
-                        break
-                else:
-                    print(f"  {Fore.RED}{enemy.name} strikes you for {dmg} damage! ({player.hp}/{player.max_hp} HP remaining){Style.RESET_ALL}")
-
-                accessory = player.equipped.get("accessory")
-                if accessory and accessory.get("special") == "reflect_10":
-                    reflect = max(1, int(dmg * 0.1))
-                    enemy.hp -= reflect
-                    print(f"  {Fore.GREEN}Reflected {reflect} damage!{Style.RESET_ALL}")
+        first_hit_blocked = enemy_attack(player, enemy, set_bonus, first_hit_blocked)
 
     if player.hp <= 0:
         print(f"\n  {Fore.RED}You have been defeated by {enemy.name}...{Style.RESET_ALL}")
         return "dead"
     else:
         print(f"\n  {Fore.GREEN}You defeated {enemy.name}!{Style.RESET_ALL}")
-        player.gain_xp(enemy.xp)
-
-        if enemy.name == "Sael, the Debt Collector":
-            print(f"  {Fore.RED}Sael: \"The debt... is cleared.\"{Style.RESET_ALL}")
-            player.gold += enemy.gold * 2
-            print(f"  {Fore.YELLOW}Sael releases his collection. +{enemy.gold * 2}g{Style.RESET_ALL}")
-        else:
-            player.gold += enemy.gold
-            print(f"  {Fore.YELLOW}+{enemy.xp} XP | +{enemy.gold} gold{Style.RESET_ALL}")
-
-        if set_bonus == "void_incarnate" and random.randint(1, 100) <= 15:
-            print(f"  {Fore.YELLOW}Void Incarnate! The next combat will be skipped.{Style.RESET_ALL}")
-            player.skip_next_combat = True
-
+        award_victory(player, enemy, set_bonus)
         return "victory"
