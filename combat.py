@@ -3,6 +3,7 @@ from colorama import Fore, Style
 from player import Player, CLASS_ABILITIES
 from enemy import Enemy, BURN_IMMUNE, BURN_WEAK, FINAL_BOSS_TURN_TEXT
 from loot import get_equipped_set, SETS
+from enemy_art import get_enemy_art
 
 RARITY_COLOURS = {
     "common":    Style.RESET_ALL,
@@ -332,7 +333,13 @@ def show_turn_header(player, enemy, set_bonus=None):
     print(f"  4. Attack + Use Item")
     print(f"  5. Ability + Use Item")
 
+def show_enemy_art(enemy):
+    for line in get_enemy_art(enemy.name):
+        print(f"  {Fore.RED}{line}{Style.RESET_ALL}")
+
 def combat_final_boss(player, enemy):
+    print()
+    show_enemy_art(enemy)
     print(f"\n  {Fore.RED}The hooded stranger rises from his chair.{Style.RESET_ALL}")
     print(f"  {Fore.RED}\"So. You actually made it.\"{Style.RESET_ALL}")
     print(f"\n  HP:  {Fore.RED}???{Style.RESET_ALL}")
@@ -420,6 +427,8 @@ def combat(player, enemy):
     if hasattr(enemy, 'is_boss') and enemy.name == "???":
         return combat_final_boss(player, enemy)
 
+    print()
+    show_enemy_art(enemy)
     print(f"\n  {Fore.RED}A {enemy.name} appears!{Style.RESET_ALL}")
     print(f"  HP: {Fore.RED}{enemy.hp}{Style.RESET_ALL} | ATK: {Fore.RED}{enemy.atk}{Style.RESET_ALL} | DEF: {enemy.defense}\n")
 
