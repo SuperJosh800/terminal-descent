@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: terminal-descent-linux
+          - os: macos-latest
+            asset: terminal-descent-macos
+          - os: windows-latest
+            asset: terminal-descent-windows.exe
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements.txt pyinstaller
+      - run: python -m tests.smoke_test
+      - run: pyinstaller --onefile --name terminal-descent main.py
+      - name: Check the executable starts
+        # With no input the game stops at the name prompt, so only check that the title screen printed.
+        run: |
+          (./dist/terminal-descent < /dev/null || true) | tee startup.txt
+          grep -q "TERMINAL DESCENT" startup.txt
+      - run: mv dist/terminal-descent* "dist/${{ matrix.asset }}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --generate-notes dist/*
+        env:
+          GH_TOKEN: ${{ github.token }}

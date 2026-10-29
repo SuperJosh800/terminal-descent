@@ -22,9 +22,15 @@ Descend through a seemingly endless dungeon, floor by floor. Fight enemies, coll
 
 ## Getting Started
 
+### Download
+
+Grab the executable for Windows, macOS (Apple Silicon) or Linux from the [latest release](https://github.com/superjosh800/terminal-descent/releases/latest) and run it in a terminal. No Python needed.
+
+To run from source instead:
+
 ### Requirements
 
-- Python 3.8+
+- Python 3.10+
 - [colorama](https://pypi.org/project/colorama/) for coloured terminal output
 
 ### Installation
@@ -35,6 +41,23 @@ cd terminal-descent
 pip install -r requirements.txt
 python main.py
 ```
+
+### Development
+
+```bash
+pip install ruff
+ruff check .                 # lint
+python -m tests.smoke_test   # plays many random games and fails on any crash or hang
+```
+
+CI runs both on every push and pull request. To publish a release, push a version tag:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+This builds the executables, checks that they start, and attaches them to a new GitHub Release.
 
 ---
 
