@@ -602,3 +602,63 @@ def combat(player, enemy):
         print(f"\n  {Fore.GREEN}You defeated {enemy.name}!{Style.RESET_ALL}")
         award_victory(player, enemy, set_bonus)
         return "victory"
+
+def show_party(heroes):
+    parts = [f"{h.name} {h.hp}/{h.max_hp} HP" if h.hp > 0 else f"{h.name} DOWN" for h in heroes]
+    print(f"  Party: {' | '.join(parts)}")
+
+def coop_combat(heroes, enemy):
+    """Co-op fight: each standing hero acts, then the enemy attacks each standing hero once."""
+    if hasattr(enemy, 'is_boss') and enemy.name == "???":
+        for hero in heroes:
+            if hero.hp > 0 and combat_final_boss(hero, enemy) == "victory_final":
+                return "victory_final"
+        return "dead"
+
+    announce_enemy(enemy)
+
+    set_bonuses = [get_active_set_bonus(hero) for hero in heroes]
+    first_hit_blocks = [has_first_hit_block(hero) for hero in heroes]
+    eternal_inferno = "eternal_inferno" in set_bonuses
+
+    def standing():
+        return [i for i, hero in enumerate(heroes) if hero.hp > 0]
+
+    while standing() and enemy.is_alive():
+
+        tick_statuses(enemy, eternal_inferno=eternal_inferno)
+        if not enemy.is_alive():
+            break
+
+        update_enemy_defense(enemy)
+
+        for i in standing():
+            print(f"\n  {Fore.CYAN}>>> {heroes[i].name}'s turn{Style.RESET_ALL}")
+            show_party(heroes)
+            player_turn(heroes[i], enemy, set_bonuses[i])
+            if not enemy.is_alive():
+                break
+        if not enemy.is_alive():
+            break
+
+        for i in standing():
+            tick_statuses(heroes[i])
+        print(f"\n  --- {Fore.RED}{enemy.name}'s turn{Style.RESET_ALL} ---")
+        for i in standing():
+            hero = heroes[i]
+            print(f"  {Fore.RED}{enemy.name} attacks {hero.name}!{Style.RESET_ALL}")
+            first_hit_blocks[i] = enemy_attack(hero, enemy, set_bonuses[i], first_hit_blocks[i])
+            if hero.hp <= 0:
+                print(f"  {Fore.RED}{hero.name} is down! They will be revived when the floor is cleared.{Style.RESET_ALL}")
+            if not enemy.is_alive():
+                break
+
+    if not standing():
+        print(f"\n  {Fore.RED}Your party has been defeated by {enemy.name}...{Style.RESET_ALL}")
+        return "dead"
+
+    print(f"\n  {Fore.GREEN}You defeated {enemy.name}!{Style.RESET_ALL}")
+    for hero, set_bonus in zip(heroes, set_bonuses):
+        print(f"  {Fore.CYAN}{hero.name}:{Style.RESET_ALL}")
+        award_victory(hero, enemy, set_bonus)
+    return "victory"

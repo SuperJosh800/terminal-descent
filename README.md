@@ -9,6 +9,7 @@ Descend through a seemingly endless dungeon, floor by floor. Fight enemies, coll
 ## Features
 
 - **Three playable classes** — Warrior, Rogue, and Mage, each with unique stats and abilities
+- **Two-player co-op** — two heroes on one keyboard, taking turns in every fight
 - **Endless dungeon** — floors go on forever, enemies scale endlessly with depth
 - **Turn-based combat** — attack, use class abilities and consume items
 - **RPG progression** — gain XP, level up, and watch your stats grow with every fight
@@ -70,6 +71,15 @@ This builds the executables, checks that they start, and attaches them to a new 
 5. Descend to the next floor and repeat
 6. Every 10 floors, face a boss - defeat it or die trying
 7. Reach floor 1000 and defeat the final boss to win!
+
+### Co-op mode
+
+Choose **Co-op** at the start to play with two heroes on one keyboard. Each hero takes a turn every round, then the enemy attacks each hero still standing. Enemies have double HP to make up for the extra hero, and solo balance is unchanged.
+
+- Both heroes earn full XP and gold from every fight, and each hero gets their own loot roll.
+- A hero who drops to 0 HP is down and sits out until the floor is cleared, when they are revived with 25% HP. A level-up also gets them back on their feet.
+- If both heroes go down, the run is over.
+- Each hero visits the tavern separately with their own gold and inventory.
 
 ---
 

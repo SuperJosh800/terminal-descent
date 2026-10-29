@@ -2,7 +2,7 @@ import random
 from colorama import Fore, Style
 from player import Player
 from enemy import spawn_enemy, spawn_boss, is_boss_floor
-from combat import combat
+from combat import combat, coop_combat
 from loot import drop_loot, drop_consumable, get_equipped_set
 from tavern import tavern, get_current_zone
 
@@ -19,7 +19,9 @@ def rarity_colour(item):
     rarity = item.get("rarity", "common")
     return RARITY_COLOURS.get(rarity, Style.RESET_ALL)
 
-def character_creation():
+COOP_ENEMY_HP_MULTIPLIER = 2
+
+def show_title():
     print(f"\n  {Fore.YELLOW}=========================================={Style.RESET_ALL}")
     print(f"  {Fore.YELLOW}       TERMINAL DESCENT{Style.RESET_ALL}")
     print(f"  {Fore.YELLOW}=========================================={Style.RESET_ALL}")
@@ -27,8 +29,21 @@ def character_creation():
     print("  Few who enter return. None who descend far enough do.")
     print(f"\n  {Fore.YELLOW}=========================================={Style.RESET_ALL}")
 
+def choose_mode():
+    print("\n  Choose a mode:")
+    print("  1. Solo")
+    print("  2. Co-op (2 players, one keyboard)")
     while True:
-        name = input("\n  Enter your hero's name: ").strip()
+        choice = input("\n  > ").strip()
+        if choice == "1":
+            return "solo"
+        if choice == "2":
+            return "coop"
+        print("  Choose 1 or 2.")
+
+def character_creation(prompt="Enter your hero's name: "):
+    while True:
+        name = input(f"\n  {prompt}").strip()
         if name:
             break
         print("  A hero needs a name.")
@@ -209,33 +224,159 @@ def play_again():
             return False
         print("  Enter y or n.")
 
-def game_loop():
-    while True:
-        player = character_creation()
-        floor = 1
-        bosses_beaten = set()
+def play_solo():
+    player = character_creation()
+    floor = 1
+    bosses_beaten = set()
 
-        print(f"\n  You push open the door to the {Fore.YELLOW}Wandering Flagon{Style.RESET_ALL}.")
-        print("  The fire crackles. A hooded figure sits in the corner.")
-        print("  The barkeep looks up.")
+    print(f"\n  You push open the door to the {Fore.YELLOW}Wandering Flagon{Style.RESET_ALL}.")
+    print("  The fire crackles. A hooded figure sits in the corner.")
+    print("  The barkeep looks up.")
+    tavern(player, floor, bosses_beaten)
+
+    while True:
+        result = run_floor(player, floor, bosses_beaten)
+
+        if result == "dead":
+            death_screen(player, floor)
+            break
+
+        if result == "victory_final":
+            victory_screen(player, floor)
+            break
+
+        print("\n  You find the passage back to the surface.")
+        print(f"  The {Fore.YELLOW}Wandering Flagon{Style.RESET_ALL} waits.")
         tavern(player, floor, bosses_beaten)
 
-        while True:
-            result = run_floor(player, floor, bosses_beaten)
+        floor += 1
 
-            if result == "dead":
-                death_screen(player, floor)
-                break
+def standing(heroes):
+    return [hero for hero in heroes if hero.hp > 0]
 
-            if result == "victory_final":
-                victory_screen(player, floor)
-                break
+def coop_loot(heroes, floor):
+    for hero in heroes:
+        print(f"\n  {Fore.CYAN}{hero.name}{Style.RESET_ALL} searches the room.")
+        handle_loot_drop(hero, floor)
 
-            print("\n  You find the passage back to the surface.")
-            print(f"  The {Fore.YELLOW}Wandering Flagon{Style.RESET_ALL} waits.")
-            tavern(player, floor, bosses_beaten)
+def take_coop_skip(heroes):
+    for hero in heroes:
+        if getattr(hero, 'skip_next_combat', False):
+            hero.skip_next_combat = False
+            return True
+    return False
 
-            floor += 1
+def run_coop_floor(heroes, floor, bosses_beaten):
+    show_floor_intro(floor, bosses_beaten)
+
+    if is_boss_floor(floor):
+        print("\n  You enter the boss chamber.")
+        for hero in standing(heroes):
+            handle_set_bonus_room(hero)
+
+        if floor != 1000 and take_coop_skip(heroes):
+            print(f"  {Fore.YELLOW}Void Incarnate! The boss senses your power and retreats... for now.{Style.RESET_ALL}")
+            print("  (Boss skipped — floor cleared)")
+            bosses_beaten.add(get_current_zone(floor))
+            return "cleared"
+
+        enemy = spawn_boss(floor)
+        if enemy is None:
+            print("  The floor is empty. You pass through.")
+            return "cleared"
+
+        print(f"\n  {'='*40}")
+        if floor == 1000:
+            print(f"  {Fore.RED}The hooded stranger stands at the bottom of everything.{Style.RESET_ALL}")
+        else:
+            enemy.hp = enemy.max_hp = enemy.max_hp * COOP_ENEMY_HP_MULTIPLIER
+            print(f"  {Fore.RED}BOSS: {enemy.name}{Style.RESET_ALL}")
+            print(f"  HP: {Fore.RED}{enemy.hp}{Style.RESET_ALL} | ATK: {Fore.RED}{enemy.atk}{Style.RESET_ALL} | DEF: {enemy.defense}")
+        print(f"  {'='*40}")
+
+        result = coop_combat(heroes, enemy)
+        if result in ("dead", "victory_final"):
+            return result
+
+        print(f"\n  {Fore.GREEN}The boss has been defeated!{Style.RESET_ALL}")
+        bosses_beaten.add(get_current_zone(floor))
+        coop_loot(heroes, floor)
+        coop_loot(heroes, floor)
+        return "cleared"
+
+    for room in range(1, ROOMS_PER_FLOOR + 1):
+        print(f"\n  {Fore.CYAN}-- Room {room} of {ROOMS_PER_FLOOR} --{Style.RESET_ALL}")
+        for hero in standing(heroes):
+            handle_set_bonus_room(hero)
+
+        if take_coop_skip(heroes):
+            print(f"  {Fore.YELLOW}Void Incarnate! The enemy flees before you.{Style.RESET_ALL}")
+            coop_loot(heroes, floor)
+            continue
+
+        enemy = spawn_enemy(floor)
+        enemy.hp = enemy.max_hp = enemy.max_hp * COOP_ENEMY_HP_MULTIPLIER
+        if coop_combat(heroes, enemy) == "dead":
+            return "dead"
+
+        coop_loot(heroes, floor)
+
+        if room < ROOMS_PER_FLOOR:
+            print("\n  You press deeper into the floor...")
+            for hero in heroes:
+                hero.show_stats()
+
+    print(f"\n  {Fore.GREEN}Floor {floor} cleared!{Style.RESET_ALL}")
+    return "cleared"
+
+def coop_tavern(heroes, floor, bosses_beaten):
+    for hero in heroes:
+        print(f"\n  {Fore.CYAN}{hero.name}'s turn at the tavern.{Style.RESET_ALL}")
+        tavern(hero, floor, bosses_beaten)
+
+def play_coop():
+    heroes = [
+        character_creation("Player 1, enter your hero's name: "),
+        character_creation("Player 2, enter your hero's name: "),
+    ]
+    floor = 1
+    bosses_beaten = set()
+
+    print(f"\n  You push open the door to the {Fore.YELLOW}Wandering Flagon{Style.RESET_ALL} together.")
+    print("  The fire crackles. A hooded figure sits in the corner.")
+    print("  The barkeep looks up.")
+    coop_tavern(heroes, floor, bosses_beaten)
+
+    while True:
+        result = run_coop_floor(heroes, floor, bosses_beaten)
+
+        if result == "dead":
+            for hero in heroes:
+                death_screen(hero, floor)
+            break
+
+        if result == "victory_final":
+            for hero in heroes:
+                victory_screen(hero, floor)
+            break
+
+        print("\n  You find the passage back to the surface.")
+        for hero in heroes:
+            if hero.hp <= 0:
+                hero.hp = max(1, int(hero.max_hp * 0.25))
+                print(f"  {Fore.GREEN}{hero.name} is carried back and revived with {hero.hp} HP.{Style.RESET_ALL}")
+        print(f"  The {Fore.YELLOW}Wandering Flagon{Style.RESET_ALL} waits.")
+        coop_tavern(heroes, floor, bosses_beaten)
+
+        floor += 1
+
+def game_loop():
+    while True:
+        show_title()
+        if choose_mode() == "coop":
+            play_coop()
+        else:
+            play_solo()
 
         if not play_again():
             print("\n  Farewell, adventurer.")

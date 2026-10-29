@@ -1,4 +1,4 @@
-"""Plays the game with random input and fails if anything crashes or hangs.
+"""Plays solo and co-op games with random input and fails if anything crashes or hangs.
 
 Run from the repository root: python -m tests.smoke_test
 """
@@ -64,34 +64,50 @@ def run(label, seed, play):
     print(f"ok   {label} seed={seed} ({counter[0]} inputs)")
 
 
-def play_strong():
-    original_creation, original_run_floor = game.character_creation, game.run_floor
-
-    def run_floor(player, floor, bosses_beaten):
+def capped(run_floor):
+    def _run_floor(heroes, floor, bosses_beaten):
         if floor > STRONG_MAX_FLOOR:
             raise Stop
-        return original_run_floor(player, floor, bosses_beaten)
+        return run_floor(heroes, floor, bosses_beaten)
+    return _run_floor
 
-    game.character_creation = lambda: make_strong(original_creation())
-    game.run_floor = run_floor
-    try:
-        game.game_loop()
-    finally:
-        game.character_creation, game.run_floor = original_creation, original_run_floor
+
+def play_strong(mode):
+    def play():
+        saved = game.character_creation, game.run_floor, game.run_coop_floor, game.choose_mode
+        original_creation = game.character_creation
+        game.character_creation = lambda *args: make_strong(original_creation(*args))
+        game.run_floor = capped(game.run_floor)
+        game.run_coop_floor = capped(game.run_coop_floor)
+        game.choose_mode = lambda: mode
+        try:
+            game.game_loop()
+        finally:
+            game.character_creation, game.run_floor, game.run_coop_floor, game.choose_mode = saved
+    return play
+
+
+def random_hero():
+    return Player("Tester", random.choice(["Warrior", "Rogue", "Mage"]))
 
 
 def play_final_boss():
-    player = Player("Tester", random.choice(["Warrior", "Rogue", "Mage"]))
-    game.run_floor(player, 1000, set())
+    game.run_floor(random_hero(), 1000, set())
+
+
+def play_coop_final_boss():
+    game.run_coop_floor([random_hero(), random_hero()], 1000, set())
 
 
 def main():
     for seed in NORMAL_SEEDS:
         run("normal game", seed, game.game_loop)
+    for mode in ("solo", "coop"):
+        for seed in STRONG_SEEDS:
+            run(f"{mode} strong heroes to floor {STRONG_MAX_FLOOR}", seed, play_strong(mode))
     for seed in STRONG_SEEDS:
-        run(f"strong hero to floor {STRONG_MAX_FLOOR}", seed, play_strong)
-    for seed in STRONG_SEEDS:
-        run("final boss", seed, play_final_boss)
+        run("solo final boss", seed, play_final_boss)
+        run("coop final boss", seed, play_coop_final_boss)
 
 
 if __name__ == "__main__":
