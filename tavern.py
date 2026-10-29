@@ -1,7 +1,6 @@
 import random
 from colorama import Fore, Style
-from loot import CONSUMABLES, drop_loot, equip_item, unequip_item
-from combat import apply_status
+from loot import equip_item, unequip_item
 
 RARITY_COLOURS = {
     "common":    Style.RESET_ALL,
@@ -164,7 +163,7 @@ def talk_to_stranger(player, floor, bosses_beaten):
         return
 
     print(f"\n  {Fore.RED}The hooded stranger turns to face you.{Style.RESET_ALL}")
-    print(f"\n  Which zone would you like to ask about?")
+    print("\n  Which zone would you like to ask about?")
 
     available = []
     for i, zone in enumerate(ZONE_ORDER):
@@ -249,7 +248,7 @@ def view_equipment(player):
     print(f"  {Fore.GREEN}HP: {player.hp}/{player.max_hp}{Style.RESET_ALL} | {Fore.BLUE}MP: {player.mp}/{player.max_mp}{Style.RESET_ALL}")
     print(f"  ATK: {player.atk}  DEF: {player.defense}  SPD: {player.spd}")
     print(f"  XP: {player.xp}/{player.xp_next} | {Fore.YELLOW}Gold: {player.gold}g{Style.RESET_ALL}")
-    print(f"\n  Equipped:")
+    print("\n  Equipped:")
     for slot, item in player.equipped.items():
         if item:
             colour = rarity_colour(item)
@@ -267,10 +266,10 @@ def view_equipment(player):
 def manage_inventory(player):
     while True:
         view_equipment(player)
-        print(f"\n  1. Equip an item")
-        print(f"  2. Unequip a slot")
-        print(f"  3. Sell an item")
-        print(f"  4. Back")
+        print("\n  1. Equip an item")
+        print("  2. Unequip a slot")
+        print("  3. Sell an item")
+        print("  4. Back")
         choice = input("\n  > ").strip()
 
         if choice == "1":
@@ -336,14 +335,14 @@ def tavern(player, floor, bosses_beaten):
     print(f"  {Fore.YELLOW}=========================================={Style.RESET_ALL}")
 
     while True:
-        print(f"\n  What would you like to do?")
+        print("\n  What would you like to do?")
         print(f"  1. Talk to {Fore.RED}???{Style.RESET_ALL} (Hooded Stranger)")
         print(f"  2. Visit {Fore.CYAN}Bram{Style.RESET_ALL} (Barkeep)")
         print(f"  3. Visit {Fore.CYAN}Sister Maren{Style.RESET_ALL} (Healer)")
         print(f"  4. Visit {Fore.CYAN}Aldric the Grey{Style.RESET_ALL} (Alchemist)")
         print(f"  5. Visit {Fore.CYAN}Sera{Style.RESET_ALL} (Merchant)")
-        print(f"  6. View stats and equipment")
-        print(f"  7. Head to the dungeon")
+        print("  6. View stats and equipment")
+        print("  7. Head to the dungeon")
 
         choice = input("\n  > ").strip()
 

@@ -1,8 +1,8 @@
 import random
 from colorama import Fore, Style
-from player import Player, CLASS_ABILITIES
-from enemy import Enemy, BURN_IMMUNE, BURN_WEAK, FINAL_BOSS_TURN_TEXT
-from loot import get_equipped_set, SETS
+from player import CLASS_ABILITIES
+from enemy import BURN_IMMUNE, BURN_WEAK, FINAL_BOSS_TURN_TEXT
+from loot import get_equipped_set
 from enemy_art import get_enemy_art
 
 RARITY_COLOURS = {
@@ -310,7 +310,7 @@ def show_turn_header(player, enemy, set_bonus=None):
     if set_bonus:
         print(f"  {Fore.YELLOW}Set Bonus: {set_bonus.replace('_', ' ').title()}{Style.RESET_ALL}")
 
-    print(f"\n  Abilities:")
+    print("\n  Abilities:")
     for ab in abilities:
         cost = ABILITIES[ab]["cost"]
         if set_bonus == "forbidden_mastery":
@@ -319,19 +319,19 @@ def show_turn_header(player, enemy, set_bonus=None):
         print(f"    - {Fore.CYAN}{ab}{Style.RESET_ALL} ({Fore.BLUE}{cost} MP{Style.RESET_ALL}){mp_note}")
 
     if consumables:
-        print(f"\n  Inventory:")
+        print("\n  Inventory:")
         for item in consumables:
             colour = rarity_colour(item)
             print(f"    - {colour}{item['name']}{Style.RESET_ALL} — {item['desc']}")
     else:
-        print(f"\n  Inventory: empty")
+        print("\n  Inventory: empty")
 
-    print(f"\n  What will you do?")
-    print(f"  1. Attack")
-    print(f"  2. Ability")
-    print(f"  3. Use Item")
-    print(f"  4. Attack + Use Item")
-    print(f"  5. Ability + Use Item")
+    print("\n  What will you do?")
+    print("  1. Attack")
+    print("  2. Ability")
+    print("  3. Use Item")
+    print("  4. Attack + Use Item")
+    print("  5. Ability + Use Item")
 
 def show_enemy_art(enemy):
     for line in get_enemy_art(enemy.name):
@@ -357,25 +357,25 @@ def combat_final_boss(player, enemy):
         print(f"\n  {player.name} | {Fore.GREEN}HP: {player.hp}/{player.max_hp}{Style.RESET_ALL} | {Fore.BLUE}MP: {player.mp}/{player.max_mp}{Style.RESET_ALL}")
 
         abilities = CLASS_ABILITIES[player.char_class]
-        print(f"\n  Abilities:")
+        print("\n  Abilities:")
         for ab in abilities:
             print(f"    - {Fore.CYAN}{ab}{Style.RESET_ALL}")
 
         consumables = [item for item in player.inventory if item["slot"] == "consumable"]
         if consumables:
-            print(f"\n  Inventory:")
+            print("\n  Inventory:")
             for item in consumables:
                 colour = rarity_colour(item)
                 print(f"    - {colour}{item['name']}{Style.RESET_ALL} — {item['desc']}")
         else:
-            print(f"\n  Inventory: empty")
+            print("\n  Inventory: empty")
 
-        print(f"\n  What will you do?")
-        print(f"  1. Attack")
-        print(f"  2. Ability")
-        print(f"  3. Use Item")
-        print(f"  4. Attack + Use Item")
-        print(f"  5. Ability + Use Item")
+        print("\n  What will you do?")
+        print("  1. Attack")
+        print("  2. Ability")
+        print("  3. Use Item")
+        print("  4. Attack + Use Item")
+        print("  5. Ability + Use Item")
 
         action = input("\n  > ").strip()
 
@@ -388,12 +388,12 @@ def combat_final_boss(player, enemy):
                     print(f"  {Fore.RED}???: \"...finally. Someone read the item description.\"{Style.RESET_ALL}")
                     print(f"\n  {Fore.YELLOW}*** THE DUNGEON HAS BEEN DEFEATED. ***{Style.RESET_ALL}")
                     return "victory_final"
-            print(f"  You attack. Your strike lands but draws no reaction.")
+            print("  You attack. Your strike lands but draws no reaction.")
             if action == "4":
-                print(f"  You reach for your supplies. He watches patiently. Nothing seems to help.")
+                print("  You reach for your supplies. He watches patiently. Nothing seems to help.")
 
         elif action in ("2", "5"):
-            print(f"\n  Choose an ability:")
+            print("\n  Choose an ability:")
             for i, ab in enumerate(abilities, 1):
                 print(f"  {i}. {Fore.CYAN}{ab}{Style.RESET_ALL}")
             choice = input("\n  > ").strip()
@@ -401,10 +401,10 @@ def combat_final_boss(player, enemy):
                 ability = abilities[int(choice) - 1]
                 print(f"  {FINAL_BOSS_ABILITY_TEXT.get(ability, 'Nothing happens.')}")
             if action == "5":
-                print(f"  You reach for your supplies. He watches patiently. Nothing seems to help.")
+                print("  You reach for your supplies. He watches patiently. Nothing seems to help.")
 
         elif action == "3":
-            print(f"  You reach for your supplies. He watches patiently. Nothing seems to help.")
+            print("  You reach for your supplies. He watches patiently. Nothing seems to help.")
 
         else:
             print("  Invalid choice.")

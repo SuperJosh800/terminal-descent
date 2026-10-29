@@ -321,7 +321,7 @@ BOOTS = {
     "Soul Stompers":           {"slot": "boots", "rarity": "common",    "zone": (71,999), "bonus": {"def": 8}},
     "Nightmare Slippers":      {"slot": "boots", "rarity": "common",    "zone": (71,999), "bonus": {"spd": 8}},
     "Abyssal Sabatons":        {"slot": "boots", "rarity": "uncommon",  "zone": (71,999), "bonus": {"spd": 12}},
-    "Boots of the Undying":    {"slot": "boots", "rarity": "uncommon",  "zone": (71,999), "bonus": {"def": 9, "spd": 7}},
+    "Undying Treads":          {"slot": "boots", "rarity": "uncommon",  "zone": (71,999), "bonus": {"def": 9, "spd": 7}},
     "Void Sovereign Treads":   {"slot": "boots", "rarity": "rare",      "zone": (71,999), "bonus": {"spd": 16}},
     "Soul Eater's Stompers":   {"slot": "boots", "rarity": "rare",      "zone": (71,999), "bonus": {"def": 11, "spd": 10}},
     "Boots of the Abyss":      {"slot": "boots", "rarity": "legendary", "zone": (71,999), "bonus": {"spd": 22, "def": 14}, "special": "evasion_5"},

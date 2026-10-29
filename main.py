@@ -1,4 +1,4 @@
-from colorama import init, Fore, Back, Style
+from colorama import init
 from game import game_loop
 
 if __name__ == "__main__":

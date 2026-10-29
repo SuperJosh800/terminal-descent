@@ -1,10 +1,10 @@
 import random
 from colorama import Fore, Style
-from player import Player, CLASS_STATS, CLASS_ABILITIES
+from player import Player
 from enemy import spawn_enemy, spawn_boss, is_boss_floor
 from combat import combat
-from loot import drop_loot, drop_consumable, equip_item, get_equipped_set
-from tavern import tavern, get_current_zone, ZONE_FLOORS
+from loot import drop_loot, drop_consumable, get_equipped_set
+from tavern import tavern, get_current_zone
 
 ROOMS_PER_FLOOR = 5
 
@@ -23,8 +23,8 @@ def character_creation():
     print(f"\n  {Fore.YELLOW}=========================================={Style.RESET_ALL}")
     print(f"  {Fore.YELLOW}       TERMINAL DESCENT{Style.RESET_ALL}")
     print(f"  {Fore.YELLOW}=========================================={Style.RESET_ALL}")
-    print(f"\n  A dungeon of endless depth awaits.")
-    print(f"  Few who enter return. None who descend far enough do.")
+    print("\n  A dungeon of endless depth awaits.")
+    print("  Few who enter return. None who descend far enough do.")
     print(f"\n  {Fore.YELLOW}=========================================={Style.RESET_ALL}")
 
     while True:
@@ -53,8 +53,8 @@ def character_creation():
 
     player = Player(name, char_class)
     print(f"\n  Welcome, {Fore.CYAN}{name} the {char_class}{Style.RESET_ALL}.")
-    print(f"  The Wandering Flagon waits at the dungeon's edge.")
-    print(f"  The stranger in the corner watches you arrive.")
+    print("  The Wandering Flagon waits at the dungeon's edge.")
+    print("  The stranger in the corner watches you arrive.")
     return player
 
 def show_floor_intro(floor, bosses_beaten):
@@ -115,19 +115,19 @@ def run_floor(player, floor, bosses_beaten):
     boss_floor = is_boss_floor(floor)
 
     if boss_floor:
-        print(f"\n  You enter the boss chamber.")
+        print("\n  You enter the boss chamber.")
         handle_set_bonus_room(player)
 
         if floor != 1000 and getattr(player, 'skip_next_combat', False):
             print(f"  {Fore.YELLOW}Void Incarnate! The boss senses your power and retreats... for now.{Style.RESET_ALL}")
-            print(f"  (Boss skipped — floor cleared)")
+            print("  (Boss skipped — floor cleared)")
             player.skip_next_combat = False
             bosses_beaten.add(get_current_zone(floor))
             return "cleared"
 
         enemy = spawn_boss(floor)
         if enemy is None:
-            print(f"  The floor is empty. You pass through.")
+            print("  The floor is empty. You pass through.")
             return "cleared"
 
         print(f"\n  {'='*40}")
@@ -171,7 +171,7 @@ def run_floor(player, floor, bosses_beaten):
             handle_loot_drop(player, floor)
 
             if room < ROOMS_PER_FLOOR:
-                print(f"\n  You press deeper into the floor...")
+                print("\n  You press deeper into the floor...")
                 player.show_stats()
 
         print(f"\n  {Fore.GREEN}Floor {floor} cleared!{Style.RESET_ALL}")
@@ -185,7 +185,7 @@ def death_screen(player, floor):
     print(f"  Reached floor: {Fore.YELLOW}{floor}{Style.RESET_ALL}")
     print(f"  Level: {Fore.YELLOW}{player.level}{Style.RESET_ALL}")
     print(f"  Gold collected: {Fore.YELLOW}{player.gold}g{Style.RESET_ALL}")
-    print(f"\n  The dungeon claims another.")
+    print("\n  The dungeon claims another.")
     print(f"  {Fore.RED}=========================================={Style.RESET_ALL}")
 
 def victory_screen(player, floor):
@@ -196,8 +196,8 @@ def victory_screen(player, floor):
     print(f"  Reached floor: {Fore.YELLOW}{floor}{Style.RESET_ALL}")
     print(f"  Level: {Fore.YELLOW}{player.level}{Style.RESET_ALL}")
     print(f"  Gold collected: {Fore.YELLOW}{player.gold}g{Style.RESET_ALL}")
-    print(f"\n  You are the first. You are the last.")
-    print(f"  The dungeon is silent.")
+    print("\n  You are the first. You are the last.")
+    print("  The dungeon is silent.")
     print(f"  {Fore.YELLOW}=========================================={Style.RESET_ALL}")
 
 def play_again():
@@ -216,8 +216,8 @@ def game_loop():
         bosses_beaten = set()
 
         print(f"\n  You push open the door to the {Fore.YELLOW}Wandering Flagon{Style.RESET_ALL}.")
-        print(f"  The fire crackles. A hooded figure sits in the corner.")
-        print(f"  The barkeep looks up.")
+        print("  The fire crackles. A hooded figure sits in the corner.")
+        print("  The barkeep looks up.")
         tavern(player, floor, bosses_beaten)
 
         while True:
@@ -231,13 +231,13 @@ def game_loop():
                 victory_screen(player, floor)
                 break
 
-            print(f"\n  You find the passage back to the surface.")
+            print("\n  You find the passage back to the surface.")
             print(f"  The {Fore.YELLOW}Wandering Flagon{Style.RESET_ALL} waits.")
             tavern(player, floor, bosses_beaten)
 
             floor += 1
 
         if not play_again():
-            print(f"\n  Farewell, adventurer.")
+            print("\n  Farewell, adventurer.")
             print(f"  {Fore.RED}The dungeon remains.{Style.RESET_ALL}")
             break
