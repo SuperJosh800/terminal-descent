@@ -1,6 +1,6 @@
 import random
 from colorama import Fore, Style
-from loot import equip_item, unequip_item
+from loot import equip_item, recommended_gear, unequip_item
 
 RARITY_COLOURS = {
     "common":    Style.RESET_ALL,
@@ -263,13 +263,35 @@ def view_equipment(player):
             colour = rarity_colour(item)
             print(f"    {i}. {colour}{item['name']}{Style.RESET_ALL} ({item.get('rarity','').capitalize()} {item['slot']})")
 
+def describe_gear(item):
+    if not item:
+        return "None"
+    bonuses = ", ".join(f"+{v} {k}" for k, v in item.get("bonus", {}).items())
+    return f"{rarity_colour(item)}{item['name']}{Style.RESET_ALL} ({bonuses})"
+
+def equip_recommended(player):
+    changes = [(slot, player.equipped[slot], item) for slot, item in recommended_gear(player).items()
+               if player.equipped[slot] is not item]
+    if not changes:
+        print(f"  {Fore.GREEN}Your best gear is already equipped.{Style.RESET_ALL}")
+        return
+    print("\n  Recommended changes:")
+    for slot, old, new in changes:
+        print(f"    {slot.capitalize()}: {describe_gear(old)} -> {describe_gear(new)}")
+    print("\n  1. Equip recommended gear")
+    print("  2. Cancel")
+    if input("\n  > ").strip() == "1":
+        for slot, old, new in changes:
+            equip_item(player, new)
+
 def manage_inventory(player):
     while True:
         view_equipment(player)
         print("\n  1. Equip an item")
         print("  2. Unequip a slot")
         print("  3. Sell an item")
-        print("  4. Back")
+        print("  4. Equip recommended gear")
+        print("  5. Back")
         choice = input("\n  > ").strip()
 
         if choice == "1":
@@ -326,6 +348,9 @@ def manage_inventory(player):
                 print(f"  {Fore.GREEN}Sold {item['name']} for {price}g.{Style.RESET_ALL}")
 
         elif choice == "4":
+            equip_recommended(player)
+
+        elif choice == "5":
             break
 
 def tavern(player, floor, bosses_beaten):

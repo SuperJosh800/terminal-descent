@@ -598,6 +598,38 @@ def unequip_item(player, item):
     colour = rarity_colour(item)
     print(f"  {Fore.RED}Unequipped {colour}{item['name']}{Style.RESET_ALL}{Fore.RED}.{Style.RESET_ALL}")
 
+# A level-up gives +1 ATK, DEF and SPD, +10 max HP and +8 max MP, so weigh item stats the same way.
+STAT_WEIGHTS = {"atk": 1, "def": 1, "spd": 1, "max_hp": 0.1, "max_mp": 0.125}
+RARITY_RANK = {"common": 0, "uncommon": 1, "rare": 2, "legendary": 3}
+
+def item_score(item):
+    return sum(STAT_WEIGHTS.get(stat, 0) * value for stat, value in item.get("bonus", {}).items())
+
+def recommended_gear(player):
+    """Returns {slot: item} with the best gear the player owns.
+
+    A complete set wins, for its set bonus. Otherwise each slot gets the item with the highest
+    stat score; ties go to the rarer item (rarer items carry the special effects), then to
+    whatever is already equipped.
+    """
+    owned = {id(item): item for item in player.inventory + list(player.equipped.values())
+             if item and item["slot"] in player.equipped}.values()
+
+    by_name = {item["name"]: item for item in owned}
+    by_name.update({item["name"]: item for item in player.equipped.values() if item})  # keep equipped copies
+    complete_sets = [data["pieces"] for data in SETS.values() if all(p in by_name for p in data["pieces"])]
+    if complete_sets:
+        pieces = max(complete_sets, key=lambda names: sum(item_score(by_name[n]) for n in names))
+        return {by_name[n]["slot"]: by_name[n] for n in pieces}
+
+    best = {}
+    for item in owned:
+        slot = item["slot"]
+        rank = (item_score(item), RARITY_RANK.get(item.get("rarity"), 0), item is player.equipped[slot])
+        if slot not in best or rank > best[slot][0]:
+            best[slot] = (rank, item)
+    return {slot: item for slot, (rank, item) in best.items()}
+
 RARITY_WEIGHTS_EARLY = {
     "common": 80,
     "uncommon": 15,

@@ -193,6 +193,8 @@ class GameWindow:
             text = label if answer in ("y", "n") else f"{answer}. {label}"
             button = self.make_button(self.buttons_frame, text, lambda a=answer: self.send(a))
             button.grid(row=i // 2, column=i % 2, sticky="ew", padx=3, pady=3)
+        self.root.update_idletasks()  # the buttons just took space from the log
+        self.log.see("end")
         self.entry.focus_set()
 
     def submit_entry(self):
