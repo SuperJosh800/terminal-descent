@@ -3,18 +3,19 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:  # builds and checks the executables without publishing a release
 
 jobs:
   build:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            asset: terminal-descent-linux
-          - os: macos-latest
-            asset: terminal-descent-macos
-          - os: windows-latest
-            asset: terminal-descent-windows.exe
+          - { os: ubuntu-latest, kind: terminal, asset: terminal-descent-linux }
+          - { os: macos-latest, kind: terminal, asset: terminal-descent-macos }
+          - { os: windows-latest, kind: terminal, asset: terminal-descent-windows.exe }
+          - { os: ubuntu-latest, kind: window, asset: terminal-descent-window-linux }
+          - { os: macos-latest, kind: window, asset: terminal-descent-window-macos }
+          - { os: windows-latest, kind: window, asset: terminal-descent-window-windows.exe, flags: --windowed }
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -26,12 +27,25 @@ jobs:
           python-version: "3.13"
       - run: pip install -r requirements.txt pyinstaller
       - run: python -m tests.smoke_test
-      - run: pyinstaller --onefile --name terminal-descent main.py
+      - run: pyinstaller --onefile ${{ matrix.flags }} --name terminal-descent ${{ matrix.kind == 'window' && 'window.py' || 'main.py' }}
       - name: Check the executable starts
-        # With no input the game stops at the name prompt, so only check that the title screen printed.
+        if: matrix.kind == 'terminal'
+        # With no input the game stops at the first prompt, so only check that the title screen printed.
         run: |
           (./dist/terminal-descent < /dev/null || true) | tee startup.txt
           grep -q "TERMINAL DESCENT" startup.txt
+      - name: Check the window opens and reaches the first menu
+        if: matrix.kind == 'window'
+        timeout-minutes: 3
+        env:
+          TERMINAL_DESCENT_SELF_TEST: "1"
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            command -v xvfb-run || sudo apt-get install -y xvfb
+            xvfb-run -a ./dist/terminal-descent
+          else
+            ./dist/terminal-descent
+          fi
       - run: mv dist/terminal-descent* "dist/${{ matrix.asset }}"
       - uses: actions/upload-artifact@v7
         with:
@@ -39,6 +53,7 @@ jobs:
           path: dist/${{ matrix.asset }}
 
   release:
+    if: startsWith(github.ref, 'refs/tags/')
     needs: build
     runs-on: ubuntu-latest
     permissions:

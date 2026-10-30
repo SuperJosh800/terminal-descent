@@ -10,6 +10,7 @@ Descend through a seemingly endless dungeon, floor by floor. Fight enemies, coll
 
 - **Three playable classes** — Warrior, Rogue, and Mage, each with unique stats and abilities
 - **Two-player co-op** — two heroes on one keyboard, taking turns in every fight
+- **Play your way** — in the terminal, in a desktop window with buttons and health bars, or in your browser
 - **Endless dungeon** — floors go on forever, enemies scale endlessly with depth
 - **Turn-based combat** — attack, use class abilities and consume items
 - **RPG progression** — gain XP, level up, and watch your stats grow with every fight
@@ -23,9 +24,13 @@ Descend through a seemingly endless dungeon, floor by floor. Fight enemies, coll
 
 ## Getting Started
 
-### Download
+### Ways to play
 
-Grab the executable for Windows, macOS (Apple Silicon) or Linux from the [latest release](https://github.com/superjosh800/terminal-descent/releases/latest) and run it in a terminal. No Python needed.
+- **In your browser:** [superjosh800.github.io/terminal-descent](https://superjosh800.github.io/terminal-descent/). Nothing to install; the first load downloads Python (about 10 MB).
+- **In a window:** download `terminal-descent-window` for Windows, macOS (Apple Silicon) or Linux from the [latest release](https://github.com/superjosh800/terminal-descent/releases/latest). It shows clickable choices, HP/MP bars and the enemy art.
+- **In a terminal:** download `terminal-descent` from the same release and run it in a terminal.
+
+The downloads need no Python. The browser and window versions run the same game as the terminal; you can click a choice or type its number.
 
 To run from source instead:
 
@@ -40,7 +45,8 @@ To run from source instead:
 git clone https://github.com/vampcent/terminal-descent.git
 cd terminal-descent
 pip install -r requirements.txt
-python main.py
+python main.py     # terminal
+python window.py   # window
 ```
 
 ### Development
@@ -51,6 +57,8 @@ ruff check .                 # lint
 python -m tests.smoke_test   # plays many random games and fails on any crash or hang
 ```
 
+`ui_bridge.py` runs the unchanged game behind the window (`window.py`) and browser (`web/`) versions: it redirects `print()` and `input()` and turns each numbered menu into buttons. Every push to `main` redeploys the browser version to GitHub Pages.
+
 CI runs both on every push and pull request. To publish a release, push a version tag:
 
 ```bash
@@ -58,7 +66,7 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-This builds the executables, checks that they start, and attaches them to a new GitHub Release.
+This builds the terminal and window executables, checks that they start, and attaches them to a new GitHub Release.
 
 ---
 

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terminal Descent</title>
+<!-- GitHub Pages cannot send the headers SharedArrayBuffer needs, so this service worker adds them. -->
+<script src="coi-serviceworker.js"></script>
+<style>
+  :root {
+    --bg: #14161a; --panel: #1d2026; --button: #2a2f38; --button-hover: #3a4150;
+    --text: #d8d8d8; --muted: #8a8f98;
+    --red: #ff6b6b; --green: #7bd88f; --yellow: #f5c542; --blue: #6ab0ff; --magenta: #d68cff; --cyan: #5fd7d7;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; max-width: 960px; margin: 0 auto; padding: 12px;
+  }
+  #log {
+    flex: 1; overflow-y: auto; margin: 0; padding: 12px 14px; background: var(--panel); border-radius: 8px;
+    font: 14px/1.35 ui-monospace, Menlo, Consolas, "DejaVu Sans Mono", monospace; white-space: pre-wrap;
+  }
+  .red { color: var(--red); } .green { color: var(--green); } .yellow { color: var(--yellow); }
+  .blue { color: var(--blue); } .magenta { color: var(--magenta); } .cyan { color: var(--cyan); }
+  #prompt { min-height: 1.4em; margin: 10px 2px 6px; color: var(--yellow); }
+  #choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; }
+  @media (max-width: 600px) { #choices { grid-template-columns: 1fr 1fr; } }
+  button {
+    background: var(--button); color: var(--text); border: 0; border-radius: 6px; padding: 9px 12px;
+    font: inherit; text-align: left; cursor: pointer;
+  }
+  button:hover, button:focus-visible { background: var(--button-hover); outline: none; }
+  form { display: flex; gap: 6px; margin-top: 6px; }
+  input {
+    flex: 1; min-width: 0; background: var(--panel); color: var(--text); border: 1px solid var(--button);
+    border-radius: 6px; padding: 9px 10px; font: 14px ui-monospace, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  }
+  input:focus { outline: none; border-color: var(--cyan); }
+  form button { text-align: center; }
+</style>
+</head>
+<body>
+<pre id="log"></pre>
+<div id="prompt">Loading the dungeon (downloads Python the first time, about 10 MB)…</div>
+<div id="choices"></div>
+<form id="form" autocomplete="off">
+  <input id="answer" aria-label="Your answer" placeholder="Type an answer or click a choice">
+  <button type="submit">Send</button>
+</form>
+<script>
+  const log = document.getElementById("log");
+  const promptLine = document.getElementById("prompt");
+  const choicesBox = document.getElementById("choices");
+  const form = document.getElementById("form");
+  const input = document.getElementById("answer");
+  const COLOURS = { 31: "red", 32: "green", 33: "yellow", 34: "blue", 35: "magenta", 36: "cyan" };
+  const MAX_LOG_NODES = 6000;
+  let colour = null;
+  let waiting = false;
+  let control, bytes;
+
+  function append(text) {
+    const parts = text.split(/\x1b\[(\d+)m/);
+    for (let i = 0; i < parts.length; i++) {
+      if (i % 2 === 1) { colour = COLOURS[parts[i]] || null; continue; }
+      if (!parts[i]) continue;
+      const span = document.createElement("span");
+      if (colour) span.className = colour;
+      span.textContent = parts[i];
+      log.appendChild(span);
+    }
+    while (log.childNodes.length > MAX_LOG_NODES) log.removeChild(log.firstChild);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function ask(prompt, choices) {
+    waiting = true;
+    promptLine.textContent = prompt === ">" ? "Choose an option, or type its number:" : prompt;
+    choicesBox.replaceChildren(...choices.map(([answer, label]) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = answer === "y" || answer === "n" ? label : `${answer}. ${label}`;
+      button.onclick = () => send(answer);
+      return button;
+    }));
+    log.scrollTop = log.scrollHeight; // the buttons just took space from the log
+    if (!choices.length) input.focus();
+  }
+
+  function send(answer) {
+    if (!waiting) return;
+    waiting = false;
+    promptLine.textContent = "";
+    choicesBox.replaceChildren();
+    const encoded = new TextEncoder().encode(answer).slice(0, bytes.length);
+    bytes.set(encoded);
+    control[1] = encoded.length;
+    Atomics.store(control, 0, 1);
+    Atomics.notify(control, 0);
+  }
+
+  addEventListener("resize", () => { log.scrollTop = log.scrollHeight; });
+
+  form.onsubmit = (event) => {
+    event.preventDefault();
+    if (!waiting) return;
+    const answer = input.value;
+    input.value = "";
+    send(answer);
+  };
+
+  if (window.crossOriginIsolated) {
+    const buffer = new SharedArrayBuffer(8 + 1024);
+    control = new Int32Array(buffer, 0, 2);
+    bytes = new Uint8Array(buffer, 8);
+    const worker = new Worker("worker.js", { type: "module" });
+    worker.onmessage = ({ data }) => {
+      if (data.type === "text") append(data.text);
+      else if (data.type === "ask") ask(data.prompt, data.choices);
+      else if (data.type === "ready") promptLine.textContent = "";
+      else if (data.type === "error") promptLine.textContent = "Something went wrong: " + data.text;
+      else if (data.type === "done") {
+        promptLine.textContent = "The dungeon remains.";
+        const again = document.createElement("button");
+        again.textContent = "Play again";
+        again.onclick = () => location.reload();
+        choicesBox.replaceChildren(again);
+        log.scrollTop = log.scrollHeight;
+      }
+    };
+    worker.postMessage({ buffer });
+  } else if (!window.isSecureContext) {
+    promptLine.textContent = "Open this page over https:// or http://localhost to play.";
+  }
+  // Otherwise coi-serviceworker.js reloads the page once it can make it cross-origin isolated.
+</script>
+</body>
+</html>

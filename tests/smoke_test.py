@@ -1,5 +1,8 @@
 """Plays solo and co-op games with random input and fails if anything crashes or hangs.
 
+Also plays through ui_bridge, as the window and browser versions do, answering only with
+the menu buttons they would show, and fails if a menu prompt has no buttons.
+
 Run from the repository root: python -m tests.smoke_test
 """
 import builtins
@@ -7,8 +10,10 @@ import collections
 import contextlib
 import io
 import random
+import sys
 
 import game
+import ui_bridge
 from player import Player
 
 NORMAL_SEEDS = range(30)
@@ -99,9 +104,24 @@ def play_coop_final_boss():
     game.run_coop_floor([random_hero(), random_hero()], 1000, set())
 
 
+def play_with_buttons():
+    pick = builtins.input  # the random input installed by run(); counts inputs and answers name prompts
+
+    def ask(prompt, choices):
+        answer = pick(prompt)
+        if "name" in prompt or "Play again" in prompt:
+            return answer
+        if not choices:
+            raise AssertionError(f"no buttons for prompt {prompt!r}")
+        return random.choice(choices)[0]
+
+    ui_bridge.run_game(sys.stdout.write, ask)
+
+
 def main():
     for seed in NORMAL_SEEDS:
         run("normal game", seed, game.game_loop)
+        run("button-only game", seed, play_with_buttons)
     for mode in ("solo", "coop"):
         for seed in STRONG_SEEDS:
             run(f"{mode} strong heroes to floor {STRONG_MAX_FLOOR}", seed, play_strong(mode))
